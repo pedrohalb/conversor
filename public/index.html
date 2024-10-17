@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV to XLSX Converter</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Upload CSV to Convert to XLSX</h2>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">Select CSV file:</label>
+                <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
+                <small class="form-text text-muted">Only CSV files are accepted.</small>
+            </div>
+            <button type="submit" class="btn btn-primary">Convert</button>
+        </form>
+        
+        <!-- Mensagem de carregamento -->
+        <div id="loadingMessage" class="mt-4" style="display: none;">
+            <p class="text-info">Processing file... Please wait.</p>
+        </div>
+
+        <!-- Seção de download -->
+        <div id="downloadSection" class="mt-4" style="display: none;">
+            <a id="downloadLink" class="btn btn-success" href="#">Download Converted File</a>
+        </div>
+
+        <!-- Exibir erros -->
+        <div id="errorMessage" class="mt-4 text-danger" style="display: none;">
+            <p>An error occurred during file upload or conversion. Please try again.</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('file');
+            if (!fileInput.files[0]) {
+                alert('Please select a file!');
+                return;
+            }
+
+            // Mostrar mensagem de carregamento
+            document.getElementById('loadingMessage').style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            fetch('/convert', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                // Ocultar mensagem de carregamento
+                document.getElementById('loadingMessage').style.display = 'none';
+
+                if (!response.ok) {
+                    throw new Error('Error during file conversion');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const downloadSection = document.getElementById('downloadSection');
+                const downloadLink = document.getElementById('downloadLink');
+                const url = URL.createObjectURL(blob);
+                downloadLink.href = url;
+                downloadLink.download = 'import-contatos.xlsx';
+                downloadSection.style.display = 'block';
+            })
+            .catch(error => {
+                // Ocultar mensagem de carregamento
+                document.getElementById('loadingMessage').style.display = 'none';
+                // Exibir mensagem de erro
+                document.getElementById('errorMessage').style.display = 'block';
+                console.error('Error:', error);
+            });
+        });
+    </script>
+</body>
+</html>
