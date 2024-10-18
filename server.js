@@ -9,20 +9,10 @@ const upload = multer({ dest: 'uploads/' });
 
 app.use(express.static('public'));
 
-/*function detectarColunas(cabecalhos, palavrasChave) {
-    return cabecalhos.reduce((indices, cabecalho, index) => {
-        const cabecalhoLower = cabecalho.toLowerCase();
-        if (palavrasChave.some(chave => cabecalhoLower.includes(chave))) {
-            indices.push(index);
-        }
-        return indices;
-    }, []);
-}*/
-
 function encontrarIndiceColuna(cabecalhos, nomeColuna) {
     return cabecalhos.findIndex(cabecalho => cabecalho.toLowerCase().includes(nomeColuna.toLowerCase()));
 } //verifica se o cabeçalho que eu estou verificando bate com o nome da coluna que eu quero 
-  //a busca é case-insensitive (não diferencia maiúsculas e minúsculas)
+//a busca é case-insensitive (não diferencia maiúsculas e minúsculas)
 
 function emailValido(email) {
     const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -77,14 +67,14 @@ function normalizarNomeCompleto(nome) {
         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join(' ');
 }// o método split(' ') separa a string nome em palavras individuais, criando um array de palavras.
- /*Não é necessário declarar explicitamente word como uma variável antes porque estamos usando uma arrow 
- function.
- O map() passa cada elemento do array para a função de callback, e o parâmetro (word) é o nome que 
- escolhemos para representar cada elemento.
- Com a arrow function (=>) você pode omitir a palavra-chave function.
- */
+/*Não é necessário declarar explicitamente word como uma variável antes porque estamos usando uma arrow 
+function.
+O map() passa cada elemento do array para a função de callback, e o parâmetro (word) é o nome que 
+escolhemos para representar cada elemento.
+Com a arrow function (=>) você pode omitir a palavra-chave function.
+*/
 
- function formatarTelefone(telefone) {
+function formatarTelefone(telefone) {
     if (!telefone) return '';
 
     let telefoneLimpo = telefone.replace(/[^\d]/g, '');
@@ -144,12 +134,12 @@ app.post('/converter', upload.single('file'), (req, res) => {
 
     const caminhoCSV = req.file.path;
 
-//linha 118 - 123:
-/*app.post('/converter', ...): Define a rota que responde a requisições POST no caminho /converter.
-  upload.single('file'): Middleware que trata o upload de um único arquivo enviado no campo 'file' do 
-  formulário. Ele salva temporariamente o arquivo e o disponibiliza em req.file.
-  (req, res) => {}: Função de callback que é executada quando a rota é chamada. Ela verifica se o arquivo 
-  foi enviado e inicia o processamento.*/
+    //linha 130 - 135:
+    /*app.post('/converter', ...): Define a rota que responde a requisições POST no caminho /converter.
+      upload.single('file'): Middleware que trata o upload de um único arquivo enviado no campo 'file' do 
+      formulário. Ele salva temporariamente o arquivo e o disponibiliza em req.file.
+      (req, res) => {}: Função de callback que é executada quando a rota é chamada. Ela verifica se o arquivo 
+      foi enviado e inicia o processamento.*/
 
     fs.readFile(caminhoCSV, 'utf8', (err, data) => {
         if (err) {
@@ -159,12 +149,12 @@ app.post('/converter', upload.single('file'), (req, res) => {
         const linhas = data.split('\n');
         const cabecalhos = linhas[0].split(',').map(cabecalho => cabecalho.trim());
 
-    //linha 132 - 138: 
-    /*O arquivo CSV é lido como uma string (com todas as linhas juntas).
-    Essa string é dividida em linhas usando split('\n').
-    A primeira linha (linhas[0]) é extraída e dividida em colunas usando split(',').
-    Cada coluna (ou seja, cada cabeçalho) é "limpa" de espaços extras usando map(cabecalho => cabecalho.trim()).
-    O resultado final é o array cabecalhos, que contém os nomes das colunas como strings.*/
+        //linha 144 - 150: 
+        /*O arquivo CSV é lido como uma string (com todas as linhas juntas).
+        Essa string é dividida em linhas usando split('\n').
+        A primeira linha (linhas[0]) é extraída e dividida em colunas usando split(',').
+        Cada coluna (ou seja, cada cabeçalho) é "limpa" de espaços extras usando map(cabecalho => cabecalho.trim()).
+        O resultado final é o array cabecalhos, que contém os nomes das colunas como strings.*/
 
         const indicePrimeiroNome = encontrarIndiceColuna(cabecalhos, 'First Name');
         const indiceNomeDoMeio = encontrarIndiceColuna(cabecalhos, 'Middle Name');
@@ -178,37 +168,37 @@ app.post('/converter', upload.single('file'), (req, res) => {
 
         for (let i = 1; i < linhas.length; i++) {
             const colunas = linhas[i].split(',').map(coluna => coluna.trim());
-        
+
             const primeiroNome = colunas[indicePrimeiroNome] || '';
             const nomeDoMeio = colunas[indiceNomeDoMeio] || '';
             const sobrenome = colunas[indiceSobrenome] || '';
             const organizacao = colunas[indiceOrganizacao] || '';
-        
+
             let nomeCompleto = normalizarNomeCompleto(processarNomeCompleto(primeiroNome, nomeDoMeio, sobrenome));
-        
+
             if (!nomeCompleto) {
                 const telefone1 = colunas[indiceTelefone1] || '';
                 const email = colunas[indiceEmail] || '';
-        
+
                 if (telefone1) {
                     nomeCompleto = formatarTelefone(telefone1);
                 } else if (email) {
                     nomeCompleto = email;
                 }
             }
-        
+
             // Usa a nova função para processar telefone 1 e telefone 2, dando prioridade para Phone 2 - Value
             const { telefone1, telefone2 } = processarTelefones(colunas[indiceTelefone1] || '', colunas[indiceTelefone2] || '');
-        
+
             const email = colunas[indiceEmail] && emailValido(colunas[indiceEmail]) ? colunas[indiceEmail] : '';
             const organizacaoFormatada = organizacao ? `${nomeCompleto} | ${organizacao}` : '';
-        
+
             if (nomeCompleto || telefone1 || email || organizacao) {
                 contatos.push([nomeCompleto, telefone1, telefone2, email, organizacaoFormatada]); // Adicionando a organização como nova coluna
             }
         }
-        
-        
+
+
 
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet('Contatos');
