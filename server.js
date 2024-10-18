@@ -198,8 +198,6 @@ app.post('/converter', upload.single('file'), (req, res) => {
             }
         }
 
-
-
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet('Contatos');
 
@@ -225,7 +223,7 @@ app.post('/converter', upload.single('file'), (req, res) => {
             const maxLength = column.values.reduce((max, val) => {
                 return Math.max(max, (val ? String(val).length : 0));
             }, 0);
-            column.width = maxLength + 2; // Adiciona um espaço extra
+            column.width = maxLength + 1; // Adiciona um espaço extra
         });
 
         const caminhoExcel = path.join(__dirname, 'uploads', 'contatos_formatados.xlsx');
