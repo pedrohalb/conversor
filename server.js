@@ -49,7 +49,7 @@ function substituirSimbolosPorLetras(nome) {
 
 function normalizarNome(nome) {// Remove caracteres especiais indesejados do nome
     return nome
-        .replace(/[^\w\s\-\'çãáéíóúâêîôûãõäëïöü]/g, '') // Permitir 'ç' e outros caracteres acentuados
+        .replace(/[^\w\s\-çãáéíóúâêîôûãõäëïöü]/g, '') // Permitir 'ç' e outros caracteres acentuados
         .trim();// o trim(); exclui espaços desnecessários  
 }
 
