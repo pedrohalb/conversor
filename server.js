@@ -1,27 +1,35 @@
 const express = require('express');
 const multer = require('multer');
-const xlsx = require('xlsx');
 const fs = require('fs');
 const path = require('path');
+const ExcelJS = require('exceljs');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
 app.use(express.static('public'));
 
-// Função para encontrar o índice de uma coluna específica
-function findColumnIndex(headers, columnName) {
-    return headers.findIndex(header => header.toLowerCase().includes(columnName.toLowerCase()));
-}
+/*function detectarColunas(cabecalhos, palavrasChave) {
+    return cabecalhos.reduce((indices, cabecalho, index) => {
+        const cabecalhoLower = cabecalho.toLowerCase();
+        if (palavrasChave.some(chave => cabecalhoLower.includes(chave))) {
+            indices.push(index);
+        }
+        return indices;
+    }, []);
+}*/
 
-// Função para validar email
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
+function encontrarIndiceColuna(cabecalhos, nomeColuna) {
+    return cabecalhos.findIndex(cabecalho => cabecalho.toLowerCase().includes(nomeColuna.toLowerCase()));
+} //verifica se o cabeçalho que eu estou verificando bate com o nome da coluna que eu quero 
+  //a busca é case-insensitive (não diferencia maiúsculas e minúsculas)
 
-// Mapeamento de símbolos para letras correspondentes
-const symbolMap = {
+function emailValido(email) {
+    const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regexEmail.test(email);
+} //Verifica se o email é válido usando uma expressão regular.
+
+const mapaSimbolos = {
     '@': 'a',
     '$': 's',
     '#': 'h',
@@ -37,222 +45,221 @@ const symbolMap = {
     'º': 'o'
 };
 
-// Função para substituir símbolos por letras semelhantes
-function replaceSymbolsWithLetters(name) {
-    return name
-        .split('') // Dividir o nome em caracteres individuais
+function substituirSimbolosPorLetras(nome) {
+    return nome
+        .split('') //A função split('') divide a string nome em um array de caracteres individuais.
         .map((char, index) => {
-            if (symbolMap[char]) {
-                // Se for o primeiro caractere, retorna a letra em maiúsculo
-                return index === 0 ? symbolMap[char].toUpperCase() : symbolMap[char].toLowerCase();
-            }
-            return char; // Se não for um símbolo mapeado, mantém o caractere original
+            if (mapaSimbolos[char]) {
+                return index === 0 ? mapaSimbolos[char].toUpperCase() : mapaSimbolos[char].toLowerCase();
+            }//ele transforma o char no char do mapa (se tiver) e então é esse char do mapa que é colocado como minúscula ou maiúscula
+            return char;
         })
-        .join(''); // Junta os caracteres de volta em uma string
+        .join('');
 }
 
-// Função para normalizar nomes (remover acentos, substituir símbolos)
-function normalizeName(name) {
-    return name
-        .normalize('NFD') // Decompor caracteres acentuados
-        .replace(/[\u0300-\u036f]/g, '') // Remover acentos
-        .replace(/[^\w\s\-\']/g, '') // Remover qualquer símbolo não desejado
-        .trim(); // Remover espaços no início e no final
+function normalizarNome(nome) {// Remove caracteres especiais indesejados do nome
+    return nome
+        .replace(/[^\w\s\-\'çãáéíóúâêîôûãõäëïöü]/g, '') // Permitir 'ç' e outros caracteres acentuados
+        .trim();// o trim(); exclui espaços desnecessários  
 }
 
-// Função para processar o nome completo
-function processFullName(firstName, middleName, lastName) {
-    let fullName = [firstName, middleName, lastName].filter(Boolean).join(' ').trim(); // Concatena sem espaços extras
-    fullName = replaceSymbolsWithLetters(fullName); // Substituir símbolos por letras correspondentes
-    fullName = normalizeName(fullName); // Normalizar o nome (remover acentos e símbolos indesejados)
-    return fullName;
+function processarNomeCompleto(primeiroNome, nomeDoMeio, sobrenome) {
+    let nomeCompleto = [primeiroNome, nomeDoMeio, sobrenome].filter(Boolean).join(' ').trim();
+    nomeCompleto = substituirSimbolosPorLetras(nomeCompleto);
+    nomeCompleto = normalizarNome(nomeCompleto);
+    return nomeCompleto;
+}/*filter(Boolean): Remove qualquer valor falso (como null, undefined, ou strings vazias) do array. 
+ Assim, se qualquer um dos 3 for vazio ou undefined, ele será removido.*/
+
+function normalizarNomeCompleto(nome) {
+    return nome
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}// o método split(' ') separa a string nome em palavras individuais, criando um array de palavras.
+ /*Não é necessário declarar explicitamente word como uma variável antes porque estamos usando uma arrow 
+ function.
+ O map() passa cada elemento do array para a função de callback, e o parâmetro (word) é o nome que 
+ escolhemos para representar cada elemento.
+ Com a arrow function (=>) você pode omitir a palavra-chave function.
+ */
+
+ function formatarTelefone(telefone) {
+    if (!telefone) return '';
+
+    let telefoneLimpo = telefone.replace(/[^\d]/g, '');
+
+    if (telefoneLimpo.startsWith('55')) {
+        telefoneLimpo = telefoneLimpo.slice(2);
+    }
+
+    if (telefoneLimpo.startsWith('031')) {
+        telefoneLimpo = telefoneLimpo.slice(3);
+    }
+
+    if (telefoneLimpo.length === 11) {
+        return `(${telefoneLimpo.slice(0, 2)}) ${telefoneLimpo.slice(2, 7)}-${telefoneLimpo.slice(7)}`;
+    }
+    else if (telefoneLimpo.length === 10) {
+        return `(${telefoneLimpo.slice(0, 2)}) ${telefoneLimpo.slice(2, 6)}-${telefoneLimpo.slice(6)}`;
+    }
+    else if (telefoneLimpo.length === 9) {
+        return `${telefoneLimpo.slice(0, 5)}-${telefoneLimpo.slice(5)}`;
+    }
+    else if (telefoneLimpo.length === 8) {
+        return `${telefoneLimpo.slice(0, 4)}-${telefoneLimpo.slice(4)}`;
+    }
+
+    return telefone; // Se o telefone não puder ser formatado, retorna o valor original
 }
 
-// Função para normalizar o nome
-function normalizaName(name) {
-    return name
-        .split(' ') // Dividir o nome em palavras
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // Primeira letra maiúscula, resto minúsculo
-        .join(' '); // Juntar as palavras de volta com espaços
+function processarTelefones(telefone1Raw, telefone2Raw) {
+    // Se já houver um número na coluna Phone 2 - Value, usá-lo como telefone2
+    if (telefone2Raw) {
+        const telefone2 = formatarTelefone(telefone2Raw);
+        const telefone1 = formatarTelefone(telefone1Raw);
+        return { telefone1, telefone2 };
+    }
+
+    // Se não houver número em Phone 2 - Value, verifica se Phone 1 - Value contém ":::"
+    if (telefone1Raw.includes(':::')) {
+        const telefones = telefone1Raw.split(':::').map(tel => tel.trim());
+
+        const telefone1 = formatarTelefone(telefones[0]); // Primeiro telefone antes do ":::"
+        const telefone2 = telefones[1] ? formatarTelefone(telefones[1]) : ''; // Segundo telefone após o ":::", se existir
+
+        return { telefone1, telefone2 };
+    }
+
+    // Se não houver ":::" e nem Phone 2 - Value, apenas formata Phone 1
+    const telefone1 = formatarTelefone(telefone1Raw);
+    return { telefone1, telefone2: '' }; // Retorna telefone2 vazio
 }
 
-// Função para normalizar o número de telefone no formato (XX) XXXXX-XXXX
-function formatPhoneNumber(phone) {
-    if (!phone) return '';
 
-    // Limpar o telefone, removendo caracteres que não sejam números
-    let cleanedPhone = phone.replace(/[^\d]/g, '');
-
-    // Caso o número tenha prefixo +55, removê-lo
-    if (cleanedPhone.startsWith('55')) {
-        cleanedPhone = cleanedPhone.slice(2);
-    }
-    
-    // Caso o número tenha prefixo 03135, removê-lo
-    if (cleanedPhone.startsWith('03135')) {
-        cleanedPhone = cleanedPhone.slice(5);  // Remove o "03135"
-    }
-
-    // Se o número tiver 11 dígitos, com DDD e nono dígito
-    if (cleanedPhone.length === 11) {
-        return `(${cleanedPhone.slice(0, 2)}) ${cleanedPhone.slice(2, 7)}-${cleanedPhone.slice(7)}`;
-    }
-    // Se o número tiver 10 dígitos, com DDD e sem nono dígito
-    else if (cleanedPhone.length === 10) {
-        return `(${cleanedPhone.slice(0, 2)}) ${cleanedPhone.slice(2, 6)}-${cleanedPhone.slice(6)}`;
-    }
-    // Se o número tiver 9 dígitos, sem DDD e com nono dígito
-    else if (cleanedPhone.length === 9) {
-        return `${cleanedPhone.slice(0, 5)}-${cleanedPhone.slice(5)}`;
-    }
-    // Se o número tiver 8 dígitos, sem DDD e sem nono dígito
-    else if (cleanedPhone.length === 8) {
-        return `${cleanedPhone.slice(0, 4)}-${cleanedPhone.slice(4)}`;
-    }
-
-    // Se não for nenhum dos formatos, retornar vazio
-    return '';
-}
-
-// Definir estilo de fonte Arial e tamanho 10
-const cellStyle = {
-    font: { name: 'Arial', sz: 10 },
-};
-
-// Função para ajustar a largura das colunas com base no conteúdo
-function adjustColumnWidths(worksheet) {
-    const range = xlsx.utils.decode_range(worksheet['!ref']);
-    const colWidths = [];
-
-    for (let col = range.s.c; col <= range.e.c; col++) {
-        let maxLength = 0;
-
-        for (let row = range.s.r; row <= range.e.r; row++) {
-            const cellAddress = xlsx.utils.encode_cell({ r: row, c: col });
-            const cell = worksheet[cellAddress];
-
-            if (cell && cell.v) {
-                maxLength = Math.max(maxLength, String(cell.v).length);
-            }
-        }
-
-        colWidths[col] = { width: maxLength + 2 }; // Adicionar um pequeno espaço para garantir que o texto não corte
-    }
-
-    worksheet['!cols'] = Object.keys(colWidths).map(colIndex => colWidths[colIndex]);
-}
-
-// Rota para upload e conversão do arquivo CSV
-app.post('/convert', upload.single('file'), (req, res) => {
+app.post('/converter', upload.single('file'), (req, res) => {
     if (!req.file) {
-        return res.status(400).send('No file uploaded.');
+        return res.status(400).send('Nenhum arquivo enviado.');
     }
 
-    // Caminho do arquivo CSV carregado
-    const csvFilePath = req.file.path;
+    const caminhoCSV = req.file.path;
 
-    // Ler o arquivo CSV
-    fs.readFile(csvFilePath, 'utf8', (err, data) => {
+//linha 118 - 123:
+/*app.post('/converter', ...): Define a rota que responde a requisições POST no caminho /converter.
+  upload.single('file'): Middleware que trata o upload de um único arquivo enviado no campo 'file' do 
+  formulário. Ele salva temporariamente o arquivo e o disponibiliza em req.file.
+  (req, res) => {}: Função de callback que é executada quando a rota é chamada. Ela verifica se o arquivo 
+  foi enviado e inicia o processamento.*/
+
+    fs.readFile(caminhoCSV, 'utf8', (err, data) => {
         if (err) {
-            return res.status(500).send('Error reading the CSV file.');
+            return res.status(500).send('Erro ao ler o arquivo CSV.');
         }
 
-        // Processar o arquivo CSV
-        const lines = data.split('\n');
-        const headers = lines[0].split(',').map(header => header.trim());
+        const linhas = data.split('\n');
+        const cabecalhos = linhas[0].split(',').map(cabecalho => cabecalho.trim());
 
-        // Encontrar os índices das colunas de interesse
-        const firstNameIndex = findColumnIndex(headers, 'First Name');
-        const middleNameIndex = findColumnIndex(headers, 'Middle Name');
-        const lastNameIndex = findColumnIndex(headers, 'Last Name');
-        const phone1Index = findColumnIndex(headers, 'Phone 1 - Value');
-        const phone2Index = findColumnIndex(headers, 'Phone 2 - Value');
-        const emailIndex = findColumnIndex(headers, 'E-mail 1 - Value');
+    //linha 132 - 138: 
+    /*O arquivo CSV é lido como uma string (com todas as linhas juntas).
+    Essa string é dividida em linhas usando split('\n').
+    A primeira linha (linhas[0]) é extraída e dividida em colunas usando split(',').
+    Cada coluna (ou seja, cada cabeçalho) é "limpa" de espaços extras usando map(cabecalho => cabecalho.trim()).
+    O resultado final é o array cabecalhos, que contém os nomes das colunas como strings.*/
 
-        const contacts = [];
+        const indicePrimeiroNome = encontrarIndiceColuna(cabecalhos, 'First Name');
+        const indiceNomeDoMeio = encontrarIndiceColuna(cabecalhos, 'Middle Name');
+        const indiceSobrenome = encontrarIndiceColuna(cabecalhos, 'Last Name');
+        const indiceTelefone1 = encontrarIndiceColuna(cabecalhos, 'Phone 1 - Value');
+        const indiceTelefone2 = encontrarIndiceColuna(cabecalhos, 'Phone 2 - Value');
+        const indiceEmail = encontrarIndiceColuna(cabecalhos, 'E-mail 1 - Value');
+        const indiceOrganizacao = encontrarIndiceColuna(cabecalhos, 'Organization Name'); // Novo índice
 
-        // Percorrer todas as linhas (exceto o cabeçalho) e extrair as informações
-        for (let i = 1; i < lines.length; i++) {
-            const columns = lines[i].split(',').map(column => column.trim());
+        const contatos = [];
 
-            // Montar o nome completo e processar símbolos
-            const firstName = columns[firstNameIndex] || '';
-            const middleName = columns[middleNameIndex] || '';
-            const lastName = columns[lastNameIndex] || '';
-
-            let fullName = normalizaName(processFullName(firstName, middleName, lastName));
-
-            // Verificar se o nome completo está vazio e tentar preenchê-lo com telefone ou e-mail
-            if (!fullName) {
-                const phone1 = columns[phone1Index] || '';
-                const email = columns[emailIndex] || '';
-                
-                if (phone1) {
-                    fullName = formatPhoneNumber(phone1);  // Se houver telefone, colocar no campo do nome com formatação
+        for (let i = 1; i < linhas.length; i++) {
+            const colunas = linhas[i].split(',').map(coluna => coluna.trim());
+        
+            const primeiroNome = colunas[indicePrimeiroNome] || '';
+            const nomeDoMeio = colunas[indiceNomeDoMeio] || '';
+            const sobrenome = colunas[indiceSobrenome] || '';
+            const organizacao = colunas[indiceOrganizacao] || '';
+        
+            let nomeCompleto = normalizarNomeCompleto(processarNomeCompleto(primeiroNome, nomeDoMeio, sobrenome));
+        
+            if (!nomeCompleto) {
+                const telefone1 = colunas[indiceTelefone1] || '';
+                const email = colunas[indiceEmail] || '';
+        
+                if (telefone1) {
+                    nomeCompleto = formatarTelefone(telefone1);
                 } else if (email) {
-                    fullName = email;  // Se não houver telefone, colocar e-mail no campo do nome
+                    nomeCompleto = email;
                 }
             }
-
-            // Limpar e formatar os telefones
-            let phone1 = formatPhoneNumber(columns[phone1Index] || '');
-            let phone2 = '';
-
-            // Verificar se há separador ":::"
-            if (phone1.includes(':::')) {
-                const phoneParts = phone1.split(':::');
-                phone1 = formatPhoneNumber(phoneParts[0]); // Primeiro telefone
-                phone2 = formatPhoneNumber(phoneParts[1] || ''); // Segundo telefone, se existir
-            } else {
-                // Se não houver separador, apenas formatar o segundo telefone normalmente
-                phone2 = formatPhoneNumber(columns[phone2Index] || '');
-            }
-
-            // Verificar se o email é válido
-            const email = isValidEmail(columns[emailIndex]) ? columns[emailIndex] : '';
-
-            // Adicionar contato ao array, mesmo que esteja faltando o email ou telefone
-            if (fullName) {
-                contacts.push({ fullName, phone1, phone2, email });
+        
+            // Usa a nova função para processar telefone 1 e telefone 2, dando prioridade para Phone 2 - Value
+            const { telefone1, telefone2 } = processarTelefones(colunas[indiceTelefone1] || '', colunas[indiceTelefone2] || '');
+        
+            const email = colunas[indiceEmail] && emailValido(colunas[indiceEmail]) ? colunas[indiceEmail] : '';
+            const organizacaoFormatada = organizacao ? `${nomeCompleto} | ${organizacao}` : '';
+        
+            if (nomeCompleto || telefone1 || email || organizacao) {
+                contatos.push([nomeCompleto, telefone1, telefone2, email, organizacaoFormatada]); // Adicionando a organização como nova coluna
             }
         }
+        
+        
 
-        // Criar um novo arquivo XLSX com os dados processados
-        const workbook = xlsx.utils.book_new();
-        const worksheetData = [['Nome', 'Telefone 1', 'Telefone 2', 'E-mail'], ...contacts.map(c => [c.fullName, c.phone1, c.phone2, c.email])];
-        const worksheet = xlsx.utils.aoa_to_sheet(worksheetData);
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Contatos');
 
-        // Ajustar a largura das colunas
-        adjustColumnWidths(worksheet);
+        // Definir estilo de célula com fonte Arial e tamanho 10
+        const estiloCelula = {
+            font: { name: 'Arial', size: 10 }
+        };
 
-        // Aplica o estilo de fonte Arial e tamanho 10 em todas as células
-        const range = xlsx.utils.decode_range(worksheet['!ref']);
-        for (let row = range.s.r; row <= range.e.r; row++) {
-            for (let col = range.s.c; col <= range.e.c; col++) {
-                const cellAddress = xlsx.utils.encode_cell({ r: row, c: col });
-                if (!worksheet[cellAddress]) continue;
-                worksheet[cellAddress].s = cellStyle;
-            }
-        }
-
-        xlsx.utils.book_append_sheet(workbook, worksheet, 'Contacts');
-
-        const outputPath = path.join(__dirname, 'uploads', 'import-contatos.xlsx');
-        xlsx.writeFile(workbook, outputPath);
-
-        // Enviar o arquivo XLSX gerado de volta para o cliente
-        res.download(outputPath, 'import-contatos.xlsx', (err) => {
-            if (err) {
-                console.error('Error downloading the file:', err);
-            }
-            // Remover o arquivo CSV e o XLSX gerado após o download
-            fs.unlink(csvFilePath, () => {});
-            fs.unlink(outputPath, () => {});
+        // Adicionar cabeçalhos
+        sheet.addRow(['Nome', 'Telefone 1', 'Telefone 2', 'E-mail', 'Organização']).eachCell(cell => { // Adicionar cabeçalho para a nova coluna
+            cell.style = estiloCelula;
         });
+
+        // Adicionar dados dos contatos
+        contatos.forEach(contato => {
+            sheet.addRow(contato).eachCell(cell => {
+                cell.style = estiloCelula;
+            });
+        });
+
+        // Ajustar largura das colunas
+        sheet.columns.forEach(column => {
+            const maxLength = column.values.reduce((max, val) => {
+                return Math.max(max, (val ? String(val).length : 0));
+            }, 0);
+            column.width = maxLength + 2; // Adiciona um espaço extra
+        });
+
+        const caminhoExcel = path.join(__dirname, 'uploads', 'contatos_formatados.xlsx');
+
+        workbook.xlsx.writeFile(caminhoExcel)
+            .then(() => {
+                fs.unlinkSync(caminhoCSV);
+
+                res.download(caminhoExcel, 'contatos_formatados.xlsx', (err) => {
+                    if (err) {
+                        return res.status(500).send('Erro ao enviar o arquivo Excel.');
+                    }
+
+                    fs.unlinkSync(caminhoExcel);
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                res.status(500).send('Erro ao gerar o arquivo Excel.');
+            });
     });
 });
 
-// Iniciar o servidor
-app.listen(3000, () => {
-    console.log('Server running on http://localhost:3000');
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+    console.log(`Servidor iniciado na porta ${port}`);
 });

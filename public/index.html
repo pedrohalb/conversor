@@ -1,36 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSV to XLSX Converter</title>
+    <title>Conversor de Arquivos</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
 </head>
 <body>
     <div class="container mt-5">
-        <h2>Upload CSV to Convert to XLSX</h2>
+        <h2>Enviar arquivo para conversão</h2>
         <form id="uploadForm" enctype="multipart/form-data">
             <div class="form-group">
-                <label for="file">Select CSV file:</label>
-                <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
-                <small class="form-text text-muted">Only CSV files are accepted.</small>
+                <label for="file">Selecione um arquivo (CSV, XLSX ou XLS):</label>
+                <input type="file" class="form-control" id="file" name="file" accept=".csv, .xlsx, .xls" required>
+                <small class="form-text text-muted">Apenas arquivos CSV, XLSX ou XLS são aceitos.</small>
             </div>
-            <button type="submit" class="btn btn-primary">Convert</button>
+            <button type="submit" class="btn btn-primary">Converter</button>
         </form>
         
         <!-- Mensagem de carregamento -->
         <div id="loadingMessage" class="mt-4" style="display: none;">
-            <p class="text-info">Processing file... Please wait.</p>
+            <p class="text-info">Processando o arquivo... Por favor, aguarde.</p>
         </div>
 
         <!-- Seção de download -->
         <div id="downloadSection" class="mt-4" style="display: none;">
-            <a id="downloadLink" class="btn btn-success" href="#">Download Converted File</a>
+            <a id="downloadLink" class="btn btn-success" href="#">Baixar arquivo convertido</a>
         </div>
 
         <!-- Exibir erros -->
         <div id="errorMessage" class="mt-4 text-danger" style="display: none;">
-            <p>An error occurred during file upload or conversion. Please try again.</p>
+            <p>Ocorreu um erro durante o envio ou conversão do arquivo. Por favor, tente novamente.</p>
         </div>
     </div>
 
@@ -40,7 +40,7 @@
 
             const fileInput = document.getElementById('file');
             if (!fileInput.files[0]) {
-                alert('Please select a file!');
+                alert('Por favor, selecione um arquivo!');
                 return;
             }
 
@@ -50,7 +50,7 @@
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
 
-            fetch('/convert', {
+            fetch('/converter', {
                 method: 'POST',
                 body: formData
             })
@@ -59,7 +59,7 @@
                 document.getElementById('loadingMessage').style.display = 'none';
 
                 if (!response.ok) {
-                    throw new Error('Error during file conversion');
+                    throw new Error('Erro durante a conversão do arquivo');
                 }
                 return response.blob();
             })
@@ -68,7 +68,7 @@
                 const downloadLink = document.getElementById('downloadLink');
                 const url = URL.createObjectURL(blob);
                 downloadLink.href = url;
-                downloadLink.download = 'import-contatos.xlsx';
+                downloadLink.download = 'arquivo-convertido.xlsx';  // Nome do arquivo baixado
                 downloadSection.style.display = 'block';
             })
             .catch(error => {
@@ -76,7 +76,7 @@
                 document.getElementById('loadingMessage').style.display = 'none';
                 // Exibir mensagem de erro
                 document.getElementById('errorMessage').style.display = 'block';
-                console.error('Error:', error);
+                console.error('Erro:', error);
             });
         });
     </script>
